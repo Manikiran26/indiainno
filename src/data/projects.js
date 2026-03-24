@@ -1,103 +1,62 @@
 // src/data/projects.js
 // All mock government infrastructure projects for the demo
 
+// src/data/projects.js
+// All mock government infrastructure projects for the demo
+
 export const projects = [
   {
-    id: 1,
-    name: "Metro Line 7 Extension",
-    lat: 28.6139,
-    lng: 77.209,
-    budget: "₹4,200 Cr",
-    completion: 68,
-    impact: "Connects 3 districts, 1.2M daily riders",
-    category: "Transport",
-    status: "In Progress",
-    agency: "Delhi Metro Rail Corporation",
-    startDate: "Jan 2023",
-    endDate: "Dec 2025",
-    description:
-      "Extension of Metro Line 7 from Janakpuri West to Krishna Park, adding 6 new stations across 15 km.",
-  },
-  {
-    id: 2,
-    name: "Smart Water Grid – Phase 2",
-    lat: 28.6304,
-    lng: 77.2177,
-    budget: "₹890 Cr",
-    completion: 42,
-    impact: "Clean water to 500K households",
-    category: "Utilities",
-    status: "In Progress",
-    agency: "Delhi Jal Board",
-    startDate: "Mar 2023",
-    endDate: "Aug 2025",
-    description:
-      "AI-enabled leak detection and pressure management for the northern water distribution network.",
-  },
-  {
-    id: 3,
-    name: "Solar Rooftop Initiative",
-    lat: 28.6562,
-    lng: 77.241,
-    budget: "₹320 Cr",
-    completion: 91,
-    impact: "120 MW renewable energy added",
-    category: "Energy",
-    status: "Near Complete",
-    agency: "BSES Yamuna",
-    startDate: "Jun 2022",
-    endDate: "Apr 2024",
-    description:
-      "Installing solar panels on 10,000 government buildings and schools across East Delhi.",
-  },
-  {
-    id: 4,
-    name: "Flood Drain Modernization",
-    lat: 28.6448,
-    lng: 77.2167,
-    budget: "₹650 Cr",
-    completion: 25,
-    impact: "Protects 2M residents from flooding",
-    category: "Infrastructure",
-    status: "Early Stage",
-    agency: "PWD Delhi",
-    startDate: "Sep 2023",
-    endDate: "Mar 2026",
-    description:
-      "Widening and lining of 200 km of storm drains with real-time sensor monitoring.",
-  },
-  {
-    id: 5,
-    name: "Digital Health Kiosks",
-    lat: 28.622,
-    lng: 77.2095,
-    budget: "₹145 Cr",
-    completion: 78,
-    impact: "Free diagnostics for 800K citizens",
+    id: "hospital_001",
+    name: "City Hospital Expansion",
+    lat: 28.6141,
+    lng: 77.2092,
+    budget: "₹450 Cr",
+    completion: 85,
+    impact: "1.2M Citizens",
     category: "Healthcare",
     status: "In Progress",
-    agency: "GNCT Health Dept.",
-    startDate: "Nov 2022",
-    endDate: "Jun 2024",
-    description:
-      "Deploying 500 AI-powered health kiosks in mohallas for basic diagnostics and telemedicine.",
+    agency: "Health Ministry",
+    description: "State-of-the-art emergency wing expansion."
   },
   {
-    id: 6,
-    name: "Urban Forest Belt",
-    lat: 28.6,
-    lng: 77.225,
-    budget: "₹78 Cr",
-    completion: 55,
-    impact: "200K trees, AQI reduction by 8%",
-    category: "Environment",
+    id: "school_001",
+    name: "Smart Public School",
+    lat: 28.6200,
+    lng: 77.2150,
+    budget: "₹85 Cr",
+    completion: 60,
+    impact: "4,500 Students",
+    category: "Education",
     status: "In Progress",
-    agency: "Delhi Forest Dept.",
-    startDate: "Feb 2023",
-    endDate: "Jan 2025",
-    description:
-      "Plantation of native species in a 12 km green corridor along Ring Road.",
+    agency: "Education Board",
+    description: "Modernized digital campus initiative."
   },
+  {
+    id: "bridge_001",
+    name: "Urban Flyover Project",
+    lat: 28.6300,
+    lng: 77.2250,
+    budget: "₹320 Cr",
+    completion: 95,
+    impact: "200k Commuters/Day",
+    category: "Transport",
+    status: "Near Complete",
+    agency: "PWD Delhi",
+    description: "City center traffic relief bridge."
+  },
+  {
+    id: "metro_001",
+    name: "Metro Line Extension Phase 2",
+    lat: 28.6100,
+    lng: 77.2300,
+    budget: "₹1,200 Cr",
+    completion: 45,
+    impact: "800k Daily Riders",
+    category: "Transport",
+    status: "In Progress",
+    agency: "DMRC",
+    description: "Underground metro expansion linking North and South Delhi."
+  }
 ];
 
 export const categoryColors = {
@@ -106,5 +65,6 @@ export const categoryColors = {
   Energy: "#f59e0b",
   Infrastructure: "#8b5cf6",
   Healthcare: "#10b981",
+  Education: "#10b981",
   Environment: "#22c55e",
 };

@@ -10,10 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "html5-qrcode": "^2.3.8",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.577.0",
     "mapbox-gl": "^3.20.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-leaflet": "^5.0.0",
     "react-map-gl": "^8.1.0"
   },
   "devDependencies": {

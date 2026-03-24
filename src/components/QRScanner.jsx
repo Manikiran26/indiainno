@@ -1,176 +1,238 @@
-// src/components/QRScanner.jsx
-// QR Scanner UI — uses camera via getUserMedia + jsQR for real scanning
-// For demo we also show a simulated "scan result"
-
 import { useState, useRef, useEffect } from "react";
-import { QrCode, Camera, CheckCircle, AlertCircle, Scan } from "lucide-react";
-import { projects } from "../data/projects";
+import { QrCode, Camera, CheckCircle, Scan, MapPin, Info, ArrowRight, MessageSquare, Clock, Users, Zap, TrendingUp, Boxes, Upload } from "lucide-react";
+import { Html5Qrcode } from "html5-qrcode";
+import { demoProjects } from "../data/demoProjects";
 
-export default function QRScanner() {
-  const [scanResult, setScanResult] = useState(null);
+function getDistance(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return 999999;
+  const R = 6371e3;
+  const toRad = (x) => (x * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+export default function QRScanner({ userLocation, infraData = [], onNavigateToAR, onNavigateToProject }) {
   const [scanning, setScanning] = useState(false);
-  const [cameraError, setCameraError] = useState(false);
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const scannerRef = useRef(null);
+  const fileInputRef = useRef(null);
 
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-      setScanning(true);
-      setCameraError(false);
-    } catch {
-      setCameraError(true);
+  const getCategoryInfo = (type, p) => {
+    switch (type?.toLowerCase()) {
+      case "education": return { label: "🏫 School", color: "text-amber-400" };
+      case "healthcare": return { label: "🏥 Hospital", color: "text-red-400" };
+      case "transport": 
+        if (p?.id?.includes("bridge")) return { label: "🌉 Bridge", color: "text-orange-400" };
+        return { label: "🚇 Metro", color: "text-indigo-400" };
+      default: return { label: "📍 Infrastructure", color: "text-gray-400" };
     }
   };
 
-  const stopCamera = () => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+  const normalize = (text) => text.trim().toLowerCase();
+
+  const handleScanSuccess = (decodedText) => {
+    console.log("Scanned ID:", decodedText);
+
+    const project = demoProjects.find(
+      (p) => p.id === normalize(decodedText)
+    );
+
+    if (project) {
+      console.log("Matched Project:", project.id);
+      setShowSuccess(true);
+      stopScanner();
+
+      setTimeout(() => {
+        onNavigateToProject(project.id);
+        setShowSuccess(false);
+      }, 800);
+    } else {
+      console.warn("Invalid QR");
+      alert("Invalid QR");
+    }
+  };
+
+  const startScanner = () => {
+    if (scannerRef.current) return;
+    
+    setScanning(true);
+    
+    setTimeout(async () => {
+      try {
+        const scanner = new Html5Qrcode("reader");
+        scannerRef.current = scanner;
+        
+        await scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          (decodedText) => handleScanSuccess(decodedText),
+          () => {} // ignore scan errors
+        );
+      } catch (err) {
+        console.error("Scanner failed to start:", err);
+        setScanning(false);
+        scannerRef.current = null;
+      }
+    }, 100);
+  };
+
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+        scannerRef.current = null;
+      } catch (err) {
+        console.error("Scanner failed to stop:", err);
+      }
+    }
     setScanning(false);
   };
 
-  // Demo: simulate a scan result after 3 seconds
   const simulateScan = () => {
-    setScanning(true);
-    setScanResult(null);
-    setTimeout(() => {
-      const p = projects[Math.floor(Math.random() * projects.length)];
-      setScanResult(p);
-      setScanning(false);
-    }, 2500);
+    const demoIds = ["metro_001", "hospital_001", "school_001", "bridge_001"];
+    const randomId = demoIds[Math.floor(Math.random() * demoIds.length)];
+    handleScanSuccess(randomId);
   };
 
-  useEffect(() => () => stopCamera(), []);
+  const scanImage = async (file) => {
+    try {
+      const scanner = new Html5Qrcode("reader");
+      const result = await scanner.scanFile(file, true);
+      console.log("Image Scan Result:", result);
+      handleScanSuccess(result);
+    } catch (err) {
+      console.error("Image scan failed:", err);
+      alert("QR not detected. Use clear image.");
+    }
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  useEffect(() => {
+     return () => stopScanner();
+  }, []);
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-10">
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-2 text-cyan-400 text-[10px] uppercase tracking-widest mb-3">
+    <div className="max-w-xl mx-auto px-4 py-8 pb-32 font-sans">
+      {/* Header Section */}
+      <div className="text-center mb-10">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4">
           <QrCode size={12} />
-          <span>QR Infrastructure Scanner</span>
+          <span>On-Site Intelligence Mode</span>
         </div>
-        <h1 className="text-2xl font-bold text-white">Scan Site Marker</h1>
-        <p className="text-gray-500 text-sm mt-2">
-          Point your camera at the QR code posted at any government project site
+        <h1 className="text-4xl font-black text-white tracking-tighter italic uppercase text-shadow-glow">Civic Intelligence Scan</h1>
+        <p className="text-gray-500 text-xs mt-3 font-medium max-w-[280px] mx-auto leading-relaxed">
+          Access real-time site intelligence by scanning verified project markers.
         </p>
       </div>
 
-      {/* Scanner box */}
-      <div className="relative bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden aspect-square max-w-xs mx-auto mb-6">
-        {scanning && !cameraError ? (
-          <>
-            <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
-            {/* Scan overlay */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-48 h-48 relative">
-                {/* Corner brackets */}
-                {["top-left", "top-right", "bottom-left", "bottom-right"].map((corner) => (
-                  <div
-                    key={corner}
-                    className={`absolute w-8 h-8 border-cyan-400
-                      ${corner.includes("top") ? "top-0" : "bottom-0"}
-                      ${corner.includes("left") ? "left-0" : "right-0"}
-                      ${corner === "top-left" ? "border-t-2 border-l-2 rounded-tl-lg" : ""}
-                      ${corner === "top-right" ? "border-t-2 border-r-2 rounded-tr-lg" : ""}
-                      ${corner === "bottom-left" ? "border-b-2 border-l-2 rounded-bl-lg" : ""}
-                      ${corner === "bottom-right" ? "border-b-2 border-r-2 rounded-br-lg" : ""}
-                    `}
-                  />
-                ))}
-                {/* Scan line animation */}
-                <div className="absolute left-0 right-0 h-0.5 bg-cyan-400 opacity-70 animate-scanLine" />
+      {/* Scanner Window */}
+      <div className="relative group max-w-sm mx-auto mb-12">
+        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-[2.5rem] blur opacity-25 group-hover:opacity-40 transition duration-1000"></div>
+        
+        <div className="relative bg-black border border-white/10 rounded-[2.5rem] overflow-hidden aspect-square flex flex-col items-center justify-center shadow-2xl">
+          <div id="reader" className={`absolute inset-0 w-full h-full object-cover ${scanning ? "block" : "hidden"}`} />
+          
+          {!scanning && showSuccess ? (
+            <div className="flex flex-col items-center animate-out zoom-out-95 duration-1000 z-10">
+              <div className="w-20 h-20 rounded-full bg-cyan-500 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(6,182,212,0.5)]">
+                <CheckCircle size={40} className="text-black" strokeWidth={3} />
               </div>
+              <span className="text-white font-black text-lg uppercase tracking-widest italic text-shadow-glow">Target Locked</span>
             </div>
-          </>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-4 p-8">
-            <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center">
-              <QrCode size={36} className="text-gray-600" />
+          ) : !scanning ? (
+            <div className="flex flex-col items-center gap-6 text-white/10 group-hover:text-cyan-500/30 transition-colors z-10">
+              <Scan size={80} strokeWidth={1} />
+              <span className="text-[10px] uppercase font-black tracking-[0.4em] translate-y-1">Awaiting Site Scan</span>
             </div>
-            <p className="text-gray-500 text-sm text-center">
-              {cameraError
-                ? "Camera access denied. Use demo mode below."
-                : "Camera preview will appear here"}
-            </p>
-          </div>
-        )}
+          ) : null}
+          
+          {/* Corner Accents */}
+          <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-white/20 rounded-tl-lg" />
+          <div className="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-white/20 rounded-tr-lg" />
+          <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-white/20 rounded-bl-lg" />
+          <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-white/20 rounded-br-lg" />
+        </div>
       </div>
 
-      {/* Buttons */}
-      <div className="flex gap-3 justify-center mb-8">
-        <button
-          onClick={scanning ? stopCamera : startCamera}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 transition-all"
-        >
-          <Camera size={15} />
-          {scanning ? "Stop Camera" : "Use Camera"}
-        </button>
+      {/* Action Buttons */}
+      <div className="flex flex-col gap-4 items-center mt-12 mb-16">
+        <div className="flex gap-4 justify-center">
+          <button
+            onClick={scanning ? stopScanner : startScanner}
+            className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-2xl ${
+              scanning 
+                ? "bg-red-500/10 border border-red-500/50 text-red-500 hover:bg-red-500/20" 
+                : "bg-white/5 border border-white/10 text-white hover:bg-white/10 hover:border-white/20"
+            }`}
+          >
+            <Camera size={16} />
+            {scanning ? "Abort Camera" : "Launch Real Scan"}
+          </button>
+          
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={scanning || showSuccess}
+            className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-white/5 border border-dashed border-white/20 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/10 hover:border-cyan-500/50 transition-all disabled:opacity-50"
+          >
+            <Upload size={16} className="text-cyan-400" />
+            Upload Image
+          </button>
+          <input 
+            type="file" 
+            accept="image/*" 
+            ref={fileInputRef} 
+            className="hidden" 
+            onChange={(e) => {
+              if (e.target.files[0]) {
+                scanImage(e.target.files[0]);
+              }
+            }}
+          />
+        </div>
+
         <button
           onClick={simulateScan}
-          disabled={scanning}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-cyan-500 hover:bg-cyan-400 text-gray-950 transition-all disabled:opacity-50"
+          disabled={scanning || showSuccess}
+          className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-cyan-500 text-black text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_rgba(6,182,212,0.4)] disabled:opacity-50 mt-2"
         >
-          <Scan size={15} />
-          Demo Scan
+          <Zap size={16} />
+          Instant Discovery
         </button>
       </div>
 
-      {/* Scan Result */}
-      {scanning && !videoRef.current?.srcObject && (
-        <div className="text-center">
-          <div className="inline-flex items-center gap-2 text-cyan-400 text-sm animate-pulse">
-            <Scan size={14} className="animate-spin" />
-            Scanning…
-          </div>
+      {/* Registry */}
+      <div className="mt-16 space-y-6">
+        <div className="flex items-center gap-4">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
+          <div className="text-[10px] text-white/20 uppercase tracking-[0.4em] font-black">Linked Project Registry</div>
+          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
         </div>
-      )}
-
-      {scanResult && (
-        <div className="bg-gray-900 border border-green-500/30 rounded-xl p-5 animate-fadeIn">
-          <div className="flex items-center gap-2 text-green-400 text-xs mb-4">
-            <CheckCircle size={14} />
-            <span className="font-bold uppercase tracking-wider">Project Identified</span>
-          </div>
-          <h3 className="text-white font-bold text-lg">{scanResult.name}</h3>
-          <p className="text-gray-400 text-xs mt-1">{scanResult.agency}</p>
-
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            {[
-              { label: "Budget", value: scanResult.budget },
-              { label: "Progress", value: `${scanResult.completion}%` },
-              { label: "Category", value: scanResult.category },
-            ].map(({ label, value }) => (
-              <div key={label} className="bg-gray-800 rounded-lg p-2.5 text-center">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">{label}</div>
-                <div className="text-xs font-bold text-white">{value}</div>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-gray-400 text-xs mt-4 leading-relaxed">{scanResult.description}</p>
-        </div>
-      )}
-
-      {/* QR Code demo cards */}
-      <div className="mt-8">
-        <p className="text-[10px] text-gray-600 uppercase tracking-widest text-center mb-3">
-          Project QR Codes (demo)
-        </p>
-        <div className="grid grid-cols-3 gap-2">
-          {projects.slice(0, 3).map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setScanResult(p)}
-              className="bg-gray-800 border border-gray-700 hover:border-cyan-500/50 rounded-lg p-2 text-center text-[10px] text-gray-400 hover:text-white transition-all"
-            >
-              <div className="text-2xl mb-1">⬛</div>
-              {p.name.split(" ").slice(0, 2).join(" ")}
-            </button>
-          ))}
+        <div className="grid grid-cols-1 gap-3">
+          {demoProjects.map((p) => {
+            const info = getCategoryInfo(p.type, p);
+            return (
+              <button
+                key={p.id}
+                onClick={() => handleScanSuccess(p.id)}
+                className="group relative bg-white/[0.02] border border-white/5 hover:border-cyan-500/50 p-6 rounded-3xl transition-all text-left flex items-center justify-between"
+              >
+                <div className="space-y-1">
+                  <div className={`text-[8px] font-black uppercase tracking-widest opacity-40 group-hover:opacity-100 transition-opacity ${info.color}`}>
+                    {info.label}
+                  </div>
+                  <div className="text-sm text-white font-bold tracking-tight uppercase italic">{p.name}</div>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/20 group-hover:bg-cyan-500 group-hover:text-black transition-all">
+                  <QrCode size={20} />
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

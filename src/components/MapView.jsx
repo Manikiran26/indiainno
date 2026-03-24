@@ -1,179 +1,235 @@
-// src/components/MapView.jsx
-// Interactive map using Leaflet (free, no API key needed)
-// To use: npm install leaflet react-leaflet
-
 import { useState, useEffect } from "react";
-import { projects, categoryColors } from "../data/projects";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
 import ProjectDetail from "./ProjectDetail";
-import { MapPin, Layers, ZoomIn, ZoomOut, Crosshair } from "lucide-react";
+import { Layers, Navigation, Loader2, MapPin } from "lucide-react";
+import { osmCategoryColors } from "../services/osmService";
 
-// We'll render a CSS grid-based simulated map if Leaflet isn't available
-// Replace this with real MapContainer from react-leaflet in your project
-
-export default function MapView() {
-  const [selected, setSelected] = useState(null);
-  const [userPos, setUserPos] = useState(null);
-  const [zoom, setZoom] = useState(1);
-
+// Helper to recenter map when location updates
+function RecenterMap({ pos }) {
+  const map = useMap();
   useEffect(() => {
-    navigator.geolocation?.getCurrentPosition((pos) => {
-      setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-    });
-  }, []);
+    if (pos) {
+      map.flyTo([pos.lat, pos.lng], 14, {
+        animate: true,
+        duration: 1.5,
+      });
+    }
+  }, [pos, map]);
+  return null;
+}
 
-  // Normalize lat/lng to % position on the demo map canvas
-  // Delhi bounds: lat 28.59–28.67, lng 77.19–77.26
-  const toPercent = (lat, lng) => {
-    const latMin = 28.59, latMax = 28.67;
-    const lngMin = 77.19, lngMax = 77.26;
-    return {
-      top: `${((latMax - lat) / (latMax - latMin)) * 100}%`,
-      left: `${((lng - lngMin) / (lngMax - lngMin)) * 100}%`,
-    };
-  };
+// Custom Dot Icon for User
+const createUserIcon = () => L.divIcon({
+  className: "custom-user-icon",
+  html: `
+    <div class="relative w-5 h-5">
+      <span class="absolute inset-0 rounded-full bg-blue-500 animate-ping opacity-60"></span>
+      <div class="relative w-5 h-5 rounded-full bg-blue-500 border-2 border-white shadow-lg shadow-blue-500/50 flex items-center justify-center">
+        <div class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+      </div>
+    </div>
+  `,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
+
+// Custom Icon for Infrastructure Nodes
+const createInfraIcon = (color) => L.divIcon({
+  className: "custom-infra-icon",
+  html: `
+    <div class="relative group">
+      <span class="absolute -inset-2 rounded-full animate-ping opacity-20" style="background-color: ${color}"></span>
+      <div class="w-8 h-8 rounded-full border-2 flex items-center justify-center shadow-lg bg-gray-950" style="border-color: ${color}">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+      </div>
+    </div>
+  `,
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+});
+
+export default function MapView({ infraData = [], loading = false, userLocation = null, selectedProject, setSelectedProject, onNavigateToAR }) {
+  // Debug Logging for Invalid Markers
+  const invalidMarkers = infraData.filter(
+    (item) =>
+      !item ||
+      typeof item.lat !== "number" ||
+      typeof item.lng !== "number" ||
+      isNaN(item.lat) ||
+      isNaN(item.lng)
+  );
+  if (invalidMarkers.length > 0) {
+    console.warn("Invalid markers filtered:", invalidMarkers);
+  }
+
+  console.log("Infra Data Received:", infraData?.length);
+
+  const mapCenter = userLocation ? [userLocation.lat, userLocation.lng] : [28.6139, 77.2090];
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
-      {/* Map Canvas */}
-      <div className="relative flex-1 bg-gray-900 overflow-hidden">
-        {/* Map background grid – simulates tile map */}
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(6,182,212,0.04) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(6,182,212,0.04) 1px, transparent 1px),
-              linear-gradient(rgba(6,182,212,0.02) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(6,182,212,0.02) 1px, transparent 1px)
-            `,
-            backgroundSize: `${80 * zoom}px ${80 * zoom}px, ${80 * zoom}px ${80 * zoom}px, ${20 * zoom}px ${20 * zoom}px, ${20 * zoom}px ${20 * zoom}px`,
-          }}
-        />
+    <div className="flex h-[calc(100vh-64px)] overflow-hidden">
+      {/* Map Section */}
+      <div className="flex-1 relative">
+        <MapContainer
+          center={mapCenter}
+          zoom={14}
+          style={{ height: "100%", width: "100%" }}
+          zoomControl={false}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          />
 
-        {/* Road-like lines */}
-        <svg className="absolute inset-0 w-full h-full opacity-20" xmlns="http://www.w3.org/2000/svg">
-          <line x1="0" y1="40%" x2="100%" y2="43%" stroke="#06b6d4" strokeWidth="2" />
-          <line x1="0" y1="70%" x2="100%" y2="68%" stroke="#06b6d4" strokeWidth="1.5" />
-          <line x1="30%" y1="0" x2="28%" y2="100%" stroke="#06b6d4" strokeWidth="2" />
-          <line x1="65%" y1="0" x2="67%" y2="100%" stroke="#06b6d4" strokeWidth="1.5" />
-          <line x1="0" y1="55%" x2="30%" y2="55%" stroke="#8b5cf6" strokeWidth="1" strokeDasharray="4,4" />
-          <line x1="30%" y1="55%" x2="65%" y2="42%" stroke="#8b5cf6" strokeWidth="1" strokeDasharray="4,4" />
-          <line x1="65%" y1="42%" x2="100%" y2="40%" stroke="#8b5cf6" strokeWidth="1" strokeDasharray="4,4" />
-        </svg>
-
-        {/* Area labels */}
-        {[
-          { name: "Connaught Place", top: "38%", left: "48%" },
-          { name: "Karol Bagh", top: "22%", left: "28%" },
-          { name: "Lajpat Nagar", top: "65%", left: "55%" },
-          { name: "Saket", top: "78%", left: "38%" },
-        ].map((area) => (
-          <span
-            key={area.name}
-            className="absolute text-[9px] text-gray-600 uppercase tracking-widest pointer-events-none"
-            style={{ top: area.top, left: area.left, transform: "translate(-50%, -50%)" }}
-          >
-            {area.name}
-          </span>
-        ))}
-
-        {/* Project Markers */}
-        {projects.map((p) => {
-          const pos = toPercent(p.lat, p.lng);
-          const color = categoryColors[p.category];
-          const isSelected = selected?.id === p.id;
-
-          return (
-            <button
+          {/* Infrastructure Markers */}
+          {infraData.filter(
+            (item) =>
+              item &&
+              typeof item.lat === "number" &&
+              typeof item.lng === "number" &&
+              !isNaN(item.lat) &&
+              !isNaN(item.lng)
+          ).map((p) => (
+            <Marker
               key={p.id}
-              onClick={() => setSelected(p)}
-              className="absolute group"
-              style={{ top: pos.top, left: pos.left, transform: "translate(-50%, -100%)", zIndex: isSelected ? 30 : 10 }}
+              position={[p.lat, p.lng]}
+              icon={createInfraIcon(osmCategoryColors[p.category] || "#94a3b8")}
+              eventHandlers={{
+                click: () => setSelectedProject(p),
+              }}
             >
-              {/* Pulse ring */}
-              <span
-                className="absolute -inset-2 rounded-full animate-ping opacity-30"
-                style={{ backgroundColor: color }}
-              />
-              {/* Pin */}
-              <div
-                className={`relative flex flex-col items-center transition-all duration-200 ${isSelected ? "scale-125" : "scale-100 group-hover:scale-110"}`}
-              >
-                <div
-                  className="w-9 h-9 rounded-full border-2 flex items-center justify-center shadow-lg"
-                  style={{ backgroundColor: color + "22", borderColor: color }}
-                >
-                  <MapPin size={14} style={{ color }} />
+              <Popup className="custom-popup">
+                <div className="p-3 min-w-[200px] bg-gray-950/90 backdrop-blur-lg border border-white/10 rounded-lg">
+                  <h3 className="font-black text-white text-xs uppercase tracking-wider mb-2 border-b border-white/5 pb-1">
+                    {p.name}
+                  </h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-gray-500 uppercase">Budget</span>
+                      <span className="text-[9px] text-cyan-400 font-bold font-mono">{p.budget}</span>
+                    </div>
+                    <p className="text-[9px] text-gray-400 italic leading-tight line-clamp-2">
+                      "{p.impact}"
+                    </p>
+                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/5">
+                      <span 
+                        className="w-1.5 h-1.5 rounded-full animate-pulse" 
+                        style={{ backgroundColor: osmCategoryColors[p.category] }}
+                      />
+                      <span className="text-[8px] text-gray-500 uppercase font-black tracking-widest">
+                        {p.category}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div
-                  className="w-0.5 h-3"
-                  style={{ backgroundColor: color }}
-                />
-              </div>
-              {/* Tooltip */}
-              <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                <div className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-[10px] text-white shadow-lg">
-                  {p.name}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-
-        {/* User position dot */}
-        {userPos && (
-          <div
-            className="absolute w-4 h-4"
-            style={{ top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}
-          >
-            <span className="absolute inset-0 rounded-full bg-blue-500 animate-ping opacity-50" />
-            <div className="relative w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow" />
-          </div>
-        )}
-
-        {/* Map controls */}
-        <div className="absolute top-4 right-4 flex flex-col gap-2">
-          {[
-            { icon: ZoomIn, action: () => setZoom((z) => Math.min(z + 0.3, 2.5)) },
-            { icon: ZoomOut, action: () => setZoom((z) => Math.max(z - 0.3, 0.5)) },
-            { icon: Crosshair, action: () => setZoom(1) },
-          ].map(({ icon: Icon, action }, i) => (
-            <button
-              key={i}
-              onClick={action}
-              className="w-9 h-9 bg-gray-800 border border-gray-700 hover:border-cyan-500 rounded flex items-center justify-center text-gray-400 hover:text-cyan-400 transition-all"
-            >
-              <Icon size={14} />
-            </button>
+              </Popup>
+            </Marker>
           ))}
-        </div>
 
-        {/* Legend */}
-        <div className="absolute bottom-4 left-4 bg-gray-900/90 border border-gray-800 rounded-lg p-3 text-xs">
-          <div className="text-gray-500 uppercase tracking-wider mb-2 text-[10px]">Categories</div>
-          {Object.entries(categoryColors).map(([cat, color]) => (
-            <div key={cat} className="flex items-center gap-2 py-0.5">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-              <span className="text-gray-400">{cat}</span>
+          {userLocation && (
+            <Marker
+              position={[userLocation.lat, userLocation.lng]}
+              icon={createUserIcon()}
+              zIndexOffset={1000}
+            />
+          )}
+
+          {userLocation && <RecenterMap pos={userLocation} />}
+        </MapContainer>
+
+        {/* HUD Elements */}
+        <div className="absolute top-6 left-6 z-[1000] flex flex-col gap-4">
+          <div className="bg-gray-950/80 backdrop-blur-md border border-cyan-500/30 p-4 rounded-xl shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="absolute inset-0 bg-cyan-500/20 blur-md rounded-full animate-pulse" />
+                <MapPin className="text-cyan-400 relative" size={20} />
+              </div>
+              <div>
+                <h1 className="text-xs font-black tracking-[0.2em] text-cyan-400 uppercase">
+                  OSM Grid Active
+                </h1>
+                <p className="text-[10px] text-gray-500 font-mono mt-0.5">
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 size={10} className="animate-spin text-cyan-400" />
+                      Updating Live Grid...
+                    </span>
+                  ) : (
+                    `Tracking ${infraData.length} site nodes`
+                  )}
+                </p>
+              </div>
             </div>
-          ))}
+          </div>
+
+          <div className="bg-gray-950/80 backdrop-blur-md border border-white/10 p-4 rounded-xl shadow-2xl w-48">
+            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
+              Infrastructure Key
+            </h3>
+            <div className="space-y-2">
+              {Object.entries(osmCategoryColors).map(([cat, color]) => (
+                <div key={cat} className="flex items-center gap-2 group cursor-default">
+                  <div 
+                    className="w-1.5 h-1.5 rounded-full transition-shadow duration-300 group-hover:shadow-[0_0_8px_rgba(255,255,255,0.5)]" 
+                    style={{ backgroundColor: color }} 
+                  />
+                  <span className="text-[10px] text-gray-400 uppercase font-mono group-hover:text-gray-200 transition-colors">
+                    {cat}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Note about real Mapbox integration */}
-        <div className="absolute top-4 left-4 bg-gray-900/90 border border-cyan-500/20 rounded-lg px-3 py-2 text-[10px] text-gray-500 max-w-[200px]">
-          <span className="text-cyan-500 font-bold">Demo Map</span> — Replace with{" "}
-          <code className="text-cyan-400">react-leaflet</code> or Mapbox GL JS for production
+        {/* Bottom Status Info */}
+        <div className="absolute bottom-6 left-6 z-[1000]">
+           <div className="bg-gray-950/80 backdrop-blur-md border border-white/5 px-4 py-2 rounded-full shadow-xl flex items-center gap-3">
+             <div className="flex items-center gap-2 text-[10px] text-gray-500 font-mono">
+               <Navigation size={12} className="text-cyan-500" />
+               <span>LOC_VEC: {userLocation ? `${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}` : "WAITING GPS..."}</span>
+             </div>
+           </div>
         </div>
       </div>
 
       {/* Detail Panel */}
-      {selected ? (
-        <ProjectDetail project={selected} onClose={() => setSelected(null)} />
+      {selectedProject ? (
+        <ProjectDetail project={selectedProject} onClose={() => setSelectedProject(null)} />
       ) : (
-        <div className="w-80 border-l border-gray-800 bg-gray-900/50 flex flex-col items-center justify-center text-center p-8">
-          <Layers size={32} className="text-gray-700 mb-4" />
-          <p className="text-gray-500 text-sm">Click a marker on the map to view project details</p>
-          <p className="text-gray-700 text-xs mt-2">{projects.length} active projects</p>
+        <div className="w-96 border-l border-white/5 bg-gray-950/50 backdrop-blur-3xl flex flex-col items-center justify-center text-center p-10 relative overflow-hidden">
+          {/* Subtle background decoration */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 blur-[120px] rounded-full -mr-32 -mt-32" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/5 blur-[120px] rounded-full -ml-32 -mb-32" />
+
+          <div className="relative">
+            <div className="w-20 h-20 rounded-[2.5rem] bg-gray-900 border border-white/10 flex items-center justify-center mb-8 shadow-2xl group transition-all duration-500 hover:border-cyan-500/40">
+              <Layers size={32} className="text-gray-600 group-hover:text-cyan-400 transition-colors duration-500" />
+            </div>
+          </div>
+          
+          <h2 className="text-lg font-black tracking-tight text-white mb-2 uppercase tracking-[0.1em]">
+            Hyper-Local Engine
+          </h2>
+          <p className="text-xs text-gray-500 font-medium uppercase tracking-[0.2em] mb-4">
+            Civic Transparency
+          </p>
+          <p className="text-gray-400 text-xs leading-relaxed max-w-[240px] font-mono opacity-80">
+            SECURE LIVE FEED. SELECT A MAPPED COORDINATE TO ANALYZE REAL-WORLD METRICS AND SERVICE STATUS.
+          </p>
+          
+          <div className="mt-10 pt-10 border-t border-white/5 w-full flex flex-col gap-3">
+             <div className="flex justify-between text-[10px] text-gray-600">
+                <span className="uppercase tracking-widest">Data Source</span>
+                <span className="font-bold text-gray-400 uppercase">OSM / Overpass</span>
+             </div>
+             <div className="flex justify-between text-[10px] text-gray-600">
+                <span className="uppercase tracking-widest">Sync Status</span>
+                <span className="font-bold text-cyan-500 uppercase tracking-tighter">Verified</span>
+             </div>
+          </div>
         </div>
       )}
     </div>
