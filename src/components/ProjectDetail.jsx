@@ -4,7 +4,9 @@ import { osmCategoryColors } from "../services/osmService";
 import ReportModal from "./ReportModal";
 
 export default function ProjectDetail({ project, onClose }) {
-  console.log("Map Project:", project);
+  console.log("DETAIL PROJECT:", project);
+
+  if (!project) return <div className="text-white p-5 font-bold">No project selected</div>;
   const [modalType, setModalType] = useState(null);
   const color = osmCategoryColors[project.category] || "#64748b";
 

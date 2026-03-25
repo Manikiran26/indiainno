@@ -50,6 +50,10 @@ const createInfraIcon = (color) => L.divIcon({
 });
 
 export default function MapView({ infraData = [], loading = false, userLocation = null, selectedProject, setSelectedProject, onNavigateToAR }) {
+  if (!infraData || infraData.length === 0) {
+    return null;
+  }
+
   // Debug Logging for Invalid Markers
   const invalidMarkers = infraData.filter(
     (item) =>

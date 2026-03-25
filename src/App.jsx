@@ -27,6 +27,16 @@ export default function App() {
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [selectedMapProject, setSelectedMapProject] = useState(null);
 
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   const { location: gpsLocation, error: locError } = useUserLocation(isAuthenticated);
   const [manualLocation, setManualLocation] = useState(null);
   const location = manualLocation || gpsLocation;
@@ -63,7 +73,6 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const urlLat = params.get("lat");
     const urlLng = params.get("lng");
-    const urlId = params.get("id");
     
     if (urlLat && urlLng) {
       const coord = { lat: parseFloat(urlLat), lng: parseFloat(urlLng) };
@@ -73,17 +82,7 @@ export default function App() {
       }
     }
 
-    if (urlId) {
-      if (window.location.pathname === "/project") {
-        console.warn("URL PROJECT ID DETECTED:", urlId);
-        setSelectedProjectId(urlId);
-        setActivePage("project");
-      } else {
-        console.warn("URL AR ID DETECTED:", urlId);
-        setSelectedARProjectId(urlId);
-        // Removed setActivePage("ar") to prevent AR auto-load bug on refresh
-      }
-    }
+    // REMOVED URL ID OVERRIDE LOGIC TO ENSURE GEO-ALERT IS PRIMARY
   }, []);
 
   // Debug/Test Listener for Simulation
@@ -156,8 +155,11 @@ export default function App() {
   }, [location]);
 
   const handleViewAlertDetails = (project) => {
-    setSelectedMapProject(project);
-    setActivePage("details");
+    // Optional delay as requested for UX
+    setTimeout(() => {
+      setSelectedMapProject(project);
+      setActivePage("details");
+    }, 1500);
   };
 
   const pages = {
@@ -173,6 +175,15 @@ export default function App() {
     feedback: <FeedbackForm />,
     impact: <ImpactCards />,
   };
+
+  if (isLoading) {
+    return (
+      <div className="loading-screen">
+        <h1 style={{ letterSpacing: '0.2em', fontWeight: 900, marginBottom: '0.5rem' }}>HYPERLOCAL ENGINE</h1>
+        <p style={{ opacity: 0.8, fontSize: '0.8rem', letterSpacing: '0.1em' }} className="animate-pulse">Connecting to Live Civic Infrastructure Grid...</p>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     if (activePage === "login") {
