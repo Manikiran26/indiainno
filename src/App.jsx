@@ -11,6 +11,7 @@ import LandingPage from "./components/LandingPage";
 import LoginPage from "./components/LoginPage";
 import SignupPage from "./components/SignupPage";
 import ProjectDetail from "./components/ProjectDetail";
+import FeedbackList from "./components/FeedbackList";
 
 import { fetchInfrastructure } from "./services/osmService";
 import useUserLocation from "./hooks/useUserLocation";
@@ -172,7 +173,8 @@ export default function App() {
         <ProjectDetail project={selectedMapProject} onClose={() => setActivePage("map")} />
       </div>
     ),
-    feedback: <FeedbackForm />,
+    feedback: <FeedbackForm onViewFeedbackList={() => setActivePage("feedbackList")} onBackToMap={() => setActivePage("map")} />,
+    feedbackList: <FeedbackList onBack={() => setActivePage("feedback")} />,
     impact: <ImpactCards />,
   };
 

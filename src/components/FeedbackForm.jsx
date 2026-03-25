@@ -1,9 +1,10 @@
 // src/components/FeedbackForm.jsx
-// Civic feedback form with project selector, rating, category, and comments
+// Civic feedback form with localStorage persistence and success screen
 
 import { useState } from "react";
-import { MessageSquare, Send, CheckCircle, Star, AlertTriangle, ThumbsUp, Clock } from "lucide-react";
+import { MessageSquare, Send, CheckCircle, Star, AlertTriangle, ThumbsUp, Clock, List } from "lucide-react";
 import { projects } from "../data/projects";
+import { saveFeedback } from "../utils/feedbackUtils";
 
 const issueTypes = [
   { id: "delay", label: "Work Delay", icon: Clock },
@@ -12,7 +13,7 @@ const issueTypes = [
   { id: "suggestion", label: "Suggestion", icon: MessageSquare },
 ];
 
-export default function FeedbackForm() {
+export default function FeedbackForm({ onViewFeedbackList, onBackToMap }) {
   const [step, setStep] = useState(1); // 1=select project, 2=fill form, 3=submitted
   const [selectedProject, setSelectedProject] = useState(null);
   const [rating, setRating] = useState(0);
@@ -20,37 +21,79 @@ export default function FeedbackForm() {
   const [issueType, setIssueType] = useState(null);
   const [comment, setComment] = useState("");
   const [name, setName] = useState("");
+  const [refId, setRefId] = useState("");
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const id = Date.now();
+    const feedbackData = {
+      id,
+      projectId: selectedProject.id,
+      projectName: selectedProject.name,
+      name: name || "Anonymous",
+      rating,
+      type: issueType,
+      description: comment,
+      timestamp: new Date().toISOString(),
+    };
+    saveFeedback(feedbackData);
+    setRefId(`HLE-${id.toString().slice(-6)}`);
     setStep(3);
   };
 
+  const handleReset = () => {
+    setStep(1);
+    setSelectedProject(null);
+    setRating(0);
+    setIssueType(null);
+    setComment("");
+    setName("");
+    setRefId("");
+  };
+
+  // ── Success Screen ──────────────────────────────────────────────
   if (step === 3) {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
         <div className="w-20 h-20 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center mx-auto mb-6">
           <CheckCircle size={36} className="text-green-400" />
         </div>
-        <h2 className="text-2xl font-bold text-white mb-2">Feedback Submitted</h2>
-        <p className="text-gray-400 text-sm mb-2">
-          Thank you, <span className="text-white">{name || "Citizen"}</span>. Your report on
+        <h2 className="text-2xl font-bold text-white mb-2">✅ Feedback Submitted</h2>
+        <p className="text-gray-400 text-sm mb-1">
+          Thank you, <span className="text-white font-semibold">{name || "Citizen"}</span>. Your report on
         </p>
         <p className="text-cyan-400 font-semibold text-sm mb-6">"{selectedProject?.name}"</p>
         <p className="text-gray-500 text-xs mb-8">
-          Your feedback has been logged and will be reviewed by the concerned agency within 5 business days.
-          Reference ID: <span className="text-gray-300 font-mono">HLE-{Date.now().toString().slice(-6)}</span>
+          Your feedback has been logged and contributes to civic transparency.<br />
+          Reference ID: <span className="text-gray-300 font-mono">{refId}</span>
         </p>
-        <button
-          onClick={() => { setStep(1); setSelectedProject(null); setRating(0); setIssueType(null); setComment(""); setName(""); }}
-          className="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-sm font-medium transition-all"
-        >
-          Submit Another
-        </button>
+
+        <div className="flex flex-col gap-3 max-w-xs mx-auto">
+          <button
+            onClick={onViewFeedbackList}
+            className="flex items-center justify-center gap-2 w-full px-6 py-3 bg-cyan-500/10 border border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/20 rounded-xl text-sm font-bold tracking-wider transition-all"
+          >
+            <List size={14} />
+            View All Feedback
+          </button>
+          <button
+            onClick={onBackToMap}
+            className="w-full px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl text-sm font-medium transition-all"
+          >
+            ← Back to Map
+          </button>
+          <button
+            onClick={handleReset}
+            className="w-full px-6 py-2 text-gray-600 hover:text-gray-400 text-xs transition-all"
+          >
+            Submit Another Report
+          </button>
+        </div>
       </div>
     );
   }
 
+  // ── Main Form ───────────────────────────────────────────────────
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
       {/* Header */}
@@ -84,6 +127,7 @@ export default function FeedbackForm() {
         ))}
       </div>
 
+      {/* Step 1: Select Project */}
       {step === 1 && (
         <div>
           <p className="text-sm text-gray-400 mb-4">Which project are you reporting on?</p>
@@ -110,6 +154,7 @@ export default function FeedbackForm() {
         </div>
       )}
 
+      {/* Step 2: Fill Form */}
       {step === 2 && selectedProject && (
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Selected project chip */}
